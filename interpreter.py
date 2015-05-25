@@ -10,16 +10,34 @@ opcode_list=[{}]
 return_to=0
 ##Logging Level Set
 log.basicConfig(level=log.ERROR)
+
+#Curses
+stdscr = curses.initscr()
+inputs = []
+ENTER=10
+TAB=9
+ESC=27
+SHIFT_TAB=353
+BACKSPACE=263
+U_BACKSPACE=8 #This is the offical BS key, i think it happens with ^H
+
+curses.noecho()
+curses.cbreak()
+curses.curs_set(0)
+stdscr.keypad(1)
+
+#Quitting Gracefully
+def end_program():
+	curses.endwin()
+	sys.exit(0)
+
 #Open Files
 varfile=open("PFL")
 code=open("SCN")
-
+# Handle Ctrl+c gracefully
 def signal_handler(signal, frame):
-				curses.endwin()
-				sys.exit(0)
+	end_program()
 signal.signal(signal.SIGINT, signal_handler)
-#print('Press Ctrl+C')
-#signal.pause()
 
 
 #Populate VarFile
@@ -69,26 +87,6 @@ for line in code:
 
 	opcode_list.append(opcode)
 
-#Curses
-stdscr = curses.initscr()
-inputs = []
-ENTER=10
-TAB=9
-ESC=27
-BACKSPACE=263
-U_BACKSPACE=8
-
-curses.noecho()
-curses.cbreak()
-curses.curs_set(0)
-#curses.start_color()
-#curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK)
-#curses.init_pair(2, curses.COLOR_RED, curses.COLOR_WHITE)
-#curses.init_pair(3, curses.COLOR_GREEN, curses.COLOR_BLACK)
-#curses.init_pair(4, curses.COLOR_GREEN, curses.COLOR_WHITE)
-stdscr.keypad(1)
-#curses.keypad(True)
-#stdscr.nodelay(True)
 def update_pos(inputs, usr_pos):
 	if usr_pos < 0:
 		usr_pos = len(inputs) - 1
@@ -100,14 +98,14 @@ def update_pos(inputs, usr_pos):
 	return usr_x, usr_y, usr_end, usr_pos
 def new_window():
 	global window
-def edit_form(window):
+def edit_form(window=stdscr):
 	global pos
 	global variables
 	global inputs
 	log.info(opcode_list[pos])
 	while opcode_list[pos]["command"] <= 2000 or opcode_list[pos+1]["command"] == 2999:
 		opcode=opcode_list[pos]
-		if opcode["command"] = 2999:
+		if opcode["command"] == 2999:
 			pos=pos+1 
 			continue
 		log.info("Position is now " + str(pos) + "and the command would be " + str(opcode_list[pos]))
@@ -192,16 +190,10 @@ def edit_form(window):
 			stdscr.chgat(usr_y,usr_x,1,curses.A_UNDERLINE)
 			usr_pos = usr_pos + 1
 			usr_x, usr_y, usr_end, usr_pos = update_pos(inputs, usr_pos)
-		elif ch == ESC: #Maybe Shift Tab ( Doesn't work correctly)
-			new_in = stdscr.getch()
-			if new_in == 91: #Basically definitely a shift tab
-				stdscr.getch()
-				stdscr.addch(usr_y,usr_x,ch,curses.A_UNDERLINE) #Change the old one to underline
-				usr_pos = usr_pos - 1
-				usr_x, usr_y, usr_end, usr_pos = update_pos(inputs, usr_pos)
-			else:
-				pos=0
-				break
+		elif ch == SHIFT_TAB: #Maybe Shift Tab ( Doesn't work correctly)
+			stdscr.chgat(usr_y,usr_x,1,curses.A_UNDERLINE)
+			usr_pos = usr_pos - 1
+			usr_x, usr_y, usr_end, usr_pos = update_pos(inputs, usr_pos)
 		else: #They typed something
 			if inputs[usr_pos]["type"] == 4:
 				if ch >= 48 and ch <= 57: #Valid numbers, 0-9
@@ -289,29 +281,30 @@ def do_math(storage, p1, p2, p3):
 	if number >= 2200: #Constant
 		number=number-2200
 		num_val=number
-	else:
+	else: ##Pull the prompt, put it in the variable
 		try: num_val = variables[number]["value"]
-		except: log.error("The number is " + str(number) + " and the value would be contained in " + str(variables))
+		except: 
+			log.error("The number is " + str(number) + " and the value would be contained in " + str(variables))
+			end_program()
+
 	if operation == 2: #Arithmatic
 		value=num_val
 	elif operation == 1: #Negative
 		value=0-num_val
 	elif operation == 0: #Length
 		value=variables[number]["length"]
-	elif operation == 6:
+	elif operation == 6: #Substring or power, etc
 		p2_op=p2%10
-		if p2_op == 5:
-			substr=substring_operation(p1,p2,p3)
-			variables[storage]["value"]=substr
+		if p2_op == 5: #Make sure its substring
+			value=substring_operation(p1,p2,p3)
 			log.info("The variable " + str(storage) + " was changed to " + str(substr) + " on line " + str(pos))
-			
 	else:
 		log.error("UNKNOWN OPERATION")
 	if operation != 6:
 		new_val=arithmatic(int(value),int(p2))
 		value=arithmatic(int(new_val),int(p3))
-		variables[storage]["value"]=value
-		log.info("The variable " + str(storage) + " was changed to " + str(value) + " on line " + str(pos))
+	variables[storage]["value"]=value
+	log.info("The variable " + str(storage) + " was changed to " + str(value) + " on line " + str(pos))
 		
 
 
@@ -431,15 +424,17 @@ def run_code(opcode):
 	p2 = opcode["p2"]
 	p3 = opcode["p3"]
 	log.info("Running " + str(opcode))
+
 	if command == 2999: #New Page
+		log.debug("Hit new page") ##Maybe I should clear the screen when this happens?
 		return ##We already defined pages
+
 	elif command <= 2000: #Display Var
 		p1 = p1
 		r = p2
 		p2 = p3
 		#resp = prompt_text(command,p1,r,p2)
 		edit_form()
-
 		
 	elif command == 3000: #Conditional
 		answer=exec_conditional(p1,p2,p3)
@@ -454,7 +449,8 @@ def run_code(opcode):
 		do_math(storage,p1,p2,p3)
 
 	elif command == 8000: #Create New Page
-		log.info("New Window Created")
+		log.debug("New Window Created")
+
 	elif command == 3101: #Goto
 		if p1 == 0:
 			return_to=pos
