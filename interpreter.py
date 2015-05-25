@@ -14,6 +14,7 @@ log.basicConfig(level=log.ERROR)
 #Curses
 stdscr = curses.initscr()
 inputs = []
+#Key Codes
 ENTER=10
 TAB=9
 ESC=27
@@ -44,23 +45,27 @@ signal.signal(signal.SIGINT, signal_handler)
 for line in varfile:
 	prompt={}
 	split = line[0:-1].split(",")
+	
 	if split[0] == '':
 		break
-	prompt["name"]=split[0]
+	else:
+		prompt["name"]=split[0]
+	
 	if split[1] != '':
 		prompt["type"]=int(split[1])
 	else:
 		prompt["type"]=0
+	
 	if split[2] != '':
 		prompt["length"]=int(split[2])
 	else:
 		prompt["length"]=0
+	
 	if prompt["type"] == 8:
 		prompt["value"] = prompt["name"]
-	else:
-		if prompt["type"] == 4:
+	elif prompt["type"] == 4:
 			prompt["value"] = 0
-		else:
+	else:
 			prompt["value"] = ""
 	variables.append(prompt)
 #populate Opcode List
@@ -96,8 +101,7 @@ def update_pos(inputs, usr_pos):
 	usr_y = inputs[usr_pos]["y"]
 	usr_end = usr_x + inputs[usr_pos]["length"]
 	return usr_x, usr_y, usr_end, usr_pos
-def new_window():
-	global window
+
 def edit_form(window=stdscr):
 	global pos
 	global variables
