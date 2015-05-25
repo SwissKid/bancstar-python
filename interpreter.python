@@ -6,23 +6,13 @@ screen_list=[0]
 pos=1
 opcode_list=[{}]
 return_to=0
+##Logging Level Set
+log.basicConfig(level=log.DEBUG)
 #Open Files
 varfile=open("PFL")
 code=open("SCN")
-##Curses
-#stdscr = curses.initscr()
-#
-#curses.noecho()
-#curses.cbreak()
-#curses.curs_set(0)
-#curses.start_color()
-#curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK)
-#curses.init_pair(2, curses.COLOR_RED, curses.COLOR_WHITE)
-#curses.init_pair(3, curses.COLOR_GREEN, curses.COLOR_BLACK)
-#curses.init_pair(4, curses.COLOR_GREEN, curses.COLOR_WHITE)
-#stdscr.keypad(True)
-log.basicConfig(level=10)
 
+#Populate VarFile
 for line in varfile:
 	prompt={}
 	split = line[0:-1].split(",")
@@ -40,8 +30,210 @@ for line in varfile:
 	if prompt["type"] == 8:
 		prompt["value"] = prompt["name"]
 	else:
-		prompt["value"] = 0
+		if prompt["type"] == 4:
+			prompt["value"] = 0
+		else:
+			prompt["value"] = ""
 	variables.append(prompt)
+#populate Opcode List
+for line in code:
+	split = line[0:-1].split(",")
+	opcode={}
+	opcode["command"]=int(split[0])
+	if split[1] != "":
+		opcode["p1"]=int(split[1])
+	else:
+		opcode["p1"]=0
+	if split[2] != "":
+		opcode["p2"]=int(split[2])
+	else:
+		opcode["p2"]=0
+	if split[2] != "":
+		opcode["p2"]=int(split[2])
+	else:
+		opcode["p3"]=0
+	if split[3] != "":
+		opcode["p3"]=int(split[3])
+	else:
+		opcode["p3"]=0
+
+	opcode_list.append(opcode)
+
+#Curses
+stdscr = curses.initscr()
+inputs = []
+ENTER=10
+TAB=9
+ESC=27
+BACKSPACE=263
+U_BACKSPACE=8
+
+curses.noecho()
+curses.cbreak()
+curses.curs_set(0)
+#curses.start_color()
+#curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK)
+#curses.init_pair(2, curses.COLOR_RED, curses.COLOR_WHITE)
+#curses.init_pair(3, curses.COLOR_GREEN, curses.COLOR_BLACK)
+#curses.init_pair(4, curses.COLOR_GREEN, curses.COLOR_WHITE)
+stdscr.keypad(1)
+#curses.keypad(True)
+#stdscr.nodelay(True)
+def update_pos(inputs, usr_pos):
+	if usr_pos < 0:
+		usr_pos = len(inputs) - 1
+	if usr_pos >= len(inputs):
+		usr_pos = usr_pos - len(inputs)
+	usr_x = inputs[usr_pos]["x"] #Move them to the next
+	usr_y = inputs[usr_pos]["y"]
+	usr_end = usr_x + inputs[usr_pos]["length"]
+	return usr_x, usr_y, usr_end
+
+def edit_form():
+	global pos
+	global variables
+	global inputs
+	log.info(opcode_list[pos])
+	while opcode_list[pos]["command"] <= 2000:
+		opcode=opcode_list[pos]
+		log.info("Position is now " + str(pos) + "and the command would be " + str(opcode_list[pos]))
+		command = opcode["command"]
+		prompt = variables[command]
+		p1 = opcode["p1"]
+		r = opcode["p2"]
+		p2 = opcode["p3"]
+		if p1 != 0:
+			x_coord=p1%100
+			y_coord=p1/100
+			stdscr.addstr(y_coord,x_coord, prompt["name"], curses.A_BOLD) #Print the name where it should go
+			log.info("Writing " + prompt["name"] + " to " + str(x_coord) + "," + str(y_coord))
+		if p2 != 0:
+			x_coord=p2%100
+			y_coord=p2/100
+			if prompt["value"] == "" or prompt["value"] == 0:
+				prompt["value"] = r*" "
+			stdscr.addnstr(y_coord,x_coord, str(prompt["value"]), r, curses.A_UNDERLINE)
+			usr_input = {}
+			usr_input["prompt"]=command
+			usr_input["x"]=x_coord
+			usr_input["y"]=y_coord
+			usr_input["length"]=r
+			usr_input["type"]=prompt["type"]
+			usr_input["value"]=prompt["value"]
+			inputs.append(usr_input) ##Keep track of the inputs so we can read them back later
+		if pos+1 >= len(opcode_list):
+			break
+		elif opcode_list[pos+1]["command"] > 2000:
+			break
+		else:
+			pos=pos+1
+		
+	#Done creating it, now to deal with user input
+	usr_pos = 0
+	log.info(inputs)
+	usr_x = inputs[usr_pos]["x"] #Start them on the first input area
+	usr_y = inputs[usr_pos]["y"]
+	usr_end = usr_x + inputs[usr_pos]["length"]
+	while True:
+		stdscr.chgat(usr_y,usr_x,1,curses.A_REVERSE)
+		#log.info("Current position is " + str(usr_x) + "," + str(usr_y))
+		ch = stdscr.getch()
+		if ch == ENTER: ##Finished Form
+			break
+		elif ch == curses.KEY_UP:
+			stdscr.chgat(usr_y,usr_x,1,curses.A_UNDERLINE)
+			usr_pos = usr_pos - 1
+			usr_x, usr_y, usr_end = update_pos(inputs, usr_pos)
+		elif ch == curses.KEY_DOWN:
+			stdscr.chgat(usr_y,usr_x,1,curses.A_UNDERLINE)
+			usr_pos = usr_pos + 1
+			usr_x, usr_y, usr_end = update_pos(inputs, usr_pos)
+		elif ch == curses.KEY_LEFT:
+			stdscr.chgat(usr_y,usr_x,1,curses.A_UNDERLINE)
+			usr_x = usr_x - 1
+			if usr_x < inputs[usr_pos]["x"]:
+				usr_pos = usr_pos - 1
+				usr_x, usr_y, usr_end = update_pos(inputs, usr_pos)
+			elif usr_x >= usr_end:
+				usr_pos = usr_pos + 1
+				usr_x, usr_y, usr_end = update_pos(inputs, usr_pos)
+		elif ch == curses.KEY_RIGHT:
+			stdscr.chgat(usr_y,usr_x,1,curses.A_UNDERLINE)
+			usr_x = usr_x + 1
+			if usr_x < inputs[usr_pos]["x"]:
+				usr_pos = usr_pos - 1
+				usr_x, usr_y, usr_end = update_pos(inputs, usr_pos)
+			elif usr_x >= usr_end:
+				usr_pos = usr_pos + 1
+				usr_x, usr_y, usr_end = update_pos(inputs, usr_pos)
+			
+		elif ch == BACKSPACE or ch == U_BACKSPACE: ##Delete
+			if usr_x > inputs[usr_pos]["x"]:
+				stdscr.addch(usr_y,usr_x,32,curses.A_UNDERLINE) #Change the old one to underline
+				usr_x = usr_x-1
+				stdscr.addch(usr_y,usr_x,32)
+			else:
+				stdscr.addch(usr_y,usr_x,32,curses.A_UNDERLINE) #Change the old one to underline
+				usr_pos=usr_pos - 1
+				usr_x, usr_y, usr_end = update_pos(inputs, usr_pos)
+				usr_x = usr_end - 1
+				
+		elif ch == TAB: ##Next Input
+			stdscr.addch(usr_y,usr_x,ch,curses.A_UNDERLINE) #Change the old one to underline
+			usr_pos = usr_pos + 1
+			usr_x, usr_y, usr_end = update_pos(inputs, usr_pos)
+		elif ch == ESC: #Maybe Shift Tab
+			new_in = stdscr.getch()
+			if new_in == 91: #Basically definitely a shift tab
+				stdscr.getch()
+				stdscr.addch(usr_y,usr_x,ch,curses.A_UNDERLINE) #Change the old one to underline
+				usr_pos = usr_pos - 1
+				usr_x, usr_y, usr_end = update_pos(inputs, usr_pos)
+			else:
+				pos=0
+				break
+		else: #They typed something
+			if inputs[usr_pos]["type"] == 4:
+				if ch >= 48 and ch <= 57: #Valid numbers, 0-9
+					stdscr.addch(usr_y,usr_x,ch,curses.A_UNDERLINE) #Change the old one to underline
+					usr_x=usr_x+1
+					log.info(str(usr_x) + " Is the X, and this is the end " + str(usr_end))
+					if usr_x >= usr_end: #Next Input
+						log.info("END OF FIELD")
+						usr_pos=usr_pos+1
+						usr_x, usr_y, usr_end = update_pos(inputs, usr_pos)
+			elif ch>=32 and ch <=126: #Standard ASCII
+				stdscr.addch(usr_y,usr_x,ch,curses.A_UNDERLINE) #Change the old one to underline
+				usr_x=usr_x+1
+				if usr_x > usr_end: #Next Input
+					log.info("END OF FIELD")
+					usr_pos=usr_pos+1
+					usr_x, usr_y, usr_end = update_pos(inputs, usr_pos)
+			else:
+				log.info("They hit " + str(ch) )
+
+	#This is where the While Loop ends - all input should be done						
+	for usr_input in inputs:
+		value=stdscr.instr(usr_input["y"], usr_input["x"], usr_input["length"]).strip() #Read the input
+		if value=='':
+			continue
+		else:
+			variables[usr_input["prompt"]]["value"]=value
+			log.info("Wrote " + value + " to " + str(usr_input["prompt"]))
+	inputs = []
+	stdscr.clear()
+
+
+			
+						
+				
+
+		
+		
+
+
+		
+
 
 def arithmatic(cur_val, com_num):
 	operation=com_num%10
@@ -225,13 +417,16 @@ def run_code(opcode):
 	p1 = opcode["p1"]
 	p2 = opcode["p2"]
 	p3 = opcode["p3"]
+	log.info("Running " + str(opcode))
 	if command == 2999: #New Page
 		return ##We already defined pages
 	elif command <= 2000: #Display Var
 		p1 = p1
 		r = p2
 		p2 = p3
-		resp = prompt_text(command,p1,r,p2)
+		#resp = prompt_text(command,p1,r,p2)
+		edit_form()
+
 		
 	elif command == 3000: #Conditional
 		answer=exec_conditional(p1,p2,p3)
@@ -245,6 +440,8 @@ def run_code(opcode):
 		storage=command - 10000
 		do_math(storage,p1,p2,p3)
 
+	elif command == 8000: #Create New Page
+		log.info("New Window Created")
 	elif command == 3101: #Goto
 		if p1 == 0:
 			return_to=pos
@@ -256,41 +453,22 @@ def run_code(opcode):
 		log.error("UNKNOWN COMMAND: " + str(command))
 			
 
-def define_pages(opcode_list):
+def define_pages():
+	global opcode_list
 	for position in range(1, len(opcode_list)):
 		if opcode_list[position]["command"] == 2999:
 			new_screen(position)
 		else:
 			continue
 
-for line in code:
-	split = line[0:-1].split(",")
-	opcode={}
-	opcode["command"]=int(split[0])
-	if split[1] != "":
-		opcode["p1"]=int(split[1])
-	else:
-		opcode["p1"]=0
-	if split[2] != "":
-		opcode["p2"]=int(split[2])
-	else:
-		opcode["p2"]=0
-	if split[2] != "":
-		opcode["p2"]=int(split[2])
-	else:
-		opcode["p3"]=0
-	if split[3] != "":
-		opcode["p3"]=int(split[3])
-	else:
-		opcode["p3"]=0
+def main():
+	global pos
+	define_pages()
+	while True:
+		run_code(opcode_list[pos])
+		pos=pos+1
+		if pos == len(opcode_list):
+			break
+main()
+curses.endwin()
 
-	opcode_list.append(opcode)
-
-define_pages(opcode_list)
-
-while True:
-	run_code(opcode_list[pos])
-	pos=pos+1
-	if pos == len(opcode_list):
-		break
-	
