@@ -7,7 +7,7 @@ pos=1
 opcode_list=[{}]
 return_to=0
 ##Logging Level Set
-log.basicConfig(level=log.DEBUG)
+log.basicConfig(level=log.ERROR)
 #Open Files
 varfile=open("PFL")
 code=open("SCN")
