@@ -98,14 +98,18 @@ def update_pos(inputs, usr_pos):
 	usr_y = inputs[usr_pos]["y"]
 	usr_end = usr_x + inputs[usr_pos]["length"]
 	return usr_x, usr_y, usr_end, usr_pos
-
-def edit_form():
+def new_window():
+	global window
+def edit_form(window):
 	global pos
 	global variables
 	global inputs
 	log.info(opcode_list[pos])
-	while opcode_list[pos]["command"] <= 2000:
+	while opcode_list[pos]["command"] <= 2000 or opcode_list[pos+1]["command"] == 2999:
 		opcode=opcode_list[pos]
+		if opcode["command"] = 2999:
+			pos=pos+1 
+			continue
 		log.info("Position is now " + str(pos) + "and the command would be " + str(opcode_list[pos]))
 		command = opcode["command"]
 		prompt = variables[command]
@@ -133,7 +137,7 @@ def edit_form():
 			inputs.append(usr_input) ##Keep track of the inputs so we can read them back later
 		if pos+1 >= len(opcode_list):
 			break
-		elif opcode_list[pos+1]["command"] > 2000:
+		elif opcode_list[pos+1]["command"] > 2000 and opcode_list[pos+1]["command"] != 2999 :
 			break
 		else:
 			pos=pos+1
