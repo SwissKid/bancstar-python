@@ -1,0 +1,296 @@
+#!/usr/bin/env python
+import curses 
+import logging as log
+variables=[{}]
+screen_list=[0]
+pos=1
+opcode_list=[{}]
+return_to=0
+#Open Files
+varfile=open("PFL")
+code=open("SCN")
+##Curses
+#stdscr = curses.initscr()
+#
+#curses.noecho()
+#curses.cbreak()
+#curses.curs_set(0)
+#curses.start_color()
+#curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK)
+#curses.init_pair(2, curses.COLOR_RED, curses.COLOR_WHITE)
+#curses.init_pair(3, curses.COLOR_GREEN, curses.COLOR_BLACK)
+#curses.init_pair(4, curses.COLOR_GREEN, curses.COLOR_WHITE)
+#stdscr.keypad(True)
+log.basicConfig(level=10)
+
+for line in varfile:
+	prompt={}
+	split = line[0:-1].split(",")
+	if split[0] == '':
+		break
+	prompt["name"]=split[0]
+	if split[1] != '':
+		prompt["type"]=int(split[1])
+	else:
+		prompt["type"]=0
+	if split[2] != '':
+		prompt["length"]=int(split[2])
+	else:
+		prompt["length"]=0
+	if prompt["type"] == 8:
+		prompt["value"] = prompt["name"]
+	else:
+		prompt["value"] = 0
+	variables.append(prompt)
+
+def arithmatic(cur_val, com_num):
+	operation=com_num%10
+	number=com_num/10
+	if number >= 2200: #Constant
+		number=number-2200
+		value=number
+	else:
+		try: value = int(variables[number]["value"])
+		except: log.error("The number is " + str(number) + " and the value would be contained in " + str(variables))
+	if operation == 1: #Subtraction
+		end_val=cur_val - value
+	elif operation == 2: #Addition
+		end_val=cur_val + value
+	elif operation == 3: #Multiplication 
+		end_val=cur_val*value
+	elif operation == 4: #Division 
+		end_val=cur_val/value
+	else:
+		log.error("NOT A VALID OPERATOR")
+		return
+	return end_val
+
+
+def substring_operation(p1, p2, p3):
+	prompt_pull=p1/10
+	prompt_pos=p2/10 - 1 - 2200
+	prompt_len=p3/10  - 2200
+
+	substr=variables[prompt_pull]["value"][prompt_pos:prompt_pos+prompt_len]
+	log.info("Substring called for location " + str(prompt_pos) + " to " + str(prompt_pos+prompt_len) + ", returning " + substr)
+	return substr
+	
+
+def do_math(storage, p1, p2, p3):
+	global variables
+	value=0
+	operation=p1%10
+	number=p1/10
+	if number >= 2200: #Constant
+		number=number-2200
+		num_val=number
+	else:
+		try: num_val = variables[number]["value"]
+		except: log.error("The number is " + str(number) + " and the value would be contained in " + str(variables))
+	if operation == 2: #Arithmatic
+		value=num_val
+	elif operation == 1: #Negative
+		value=0-num_val
+	elif operation == 0: #Length
+		value=variables[number]["length"]
+	elif operation == 6:
+		p2_op=p2%10
+		if p2_op == 5:
+			substr=substring_operation(p1,p2,p3)
+			variables[storage]["value"]=substr
+			log.info("The variable " + str(storage) + " was changed to " + str(substr) + " on line " + str(pos))
+			
+	else:
+		log.error("UNKNOWN OPERATION")
+	if operation != 6:
+		new_val=arithmatic(int(value),int(p2))
+		value=arithmatic(int(new_val),int(p3))
+		variables[storage]["value"]=value
+		log.info("The variable " + str(storage) + " was changed to " + str(value) + " on line " + str(pos))
+		
+
+
+def exec_conditional(p1,cond,p3):
+	p1_type=variables[p1]["type"]
+	p1_value=variables[p1]["value"]
+	if p3 > 20000:
+		p3_type=variables[p3-20000]["type"]
+		p3_value=variables[p3-20000]["value"]
+	elif p3 > 10000 and p3 < 20000:
+		p3_type=4
+		p3_value=p3-10000
+	else:
+		log.error("Wrong p3")
+	log.info("Comparing " + str(p1_value) + " with " + str(cond) + " to " + str(p3_value))
+	if p1_type == 7: # and p3_type !=7: #Special Operation
+		log.info("Special Conditional Called")
+		log.info(str(p1) + " is type " + str(p1_type))
+		if cond == 1: #Null
+			if p1_value == 0 or p1_value == "":
+				return True
+			else:
+				return False
+		elif cond == 2: #Not Null
+			if p1_value != 0 or p1_value != "":
+				return
+			else:
+				return False
+		elif cond == 3: #Equal
+			if p1_value == p3_value:
+				return True
+			else:
+				return False
+		elif cond == 4: #Not Equal
+			if p1_value != p3_value:
+				return True
+			else:
+				return False
+		else:
+			log.error("Unknown operation")
+	else:
+		if cond == 1: #Less Than
+			if p1_value < p3_value:
+				return True
+			else:
+				return False
+		elif cond == 2: #Less Than or Equal
+			if p1_value <= p3_value:
+				return True
+			else:
+				return False
+		elif cond == 3: #Equal
+			if p1_value == p3_value:
+				return True
+			else:
+				return False
+		elif cond == 4: #Greater Than or Equal
+			if p1_value >= p3_value:
+				return True
+			else:
+				return False
+		elif cond == 5: #Greater Than
+			if p1_value > p3_value:
+				return True
+			else:
+				return False
+		elif cond == 6: #Not Equal
+			if str(p1_value) != str(p3_value):
+				log.info("THIS DIDNT EQUAL THAT")
+				return True
+			else:
+				return False
+				log.info("Skipped a position")
+		else:
+			log.error("Unknown Condition")
+		
+		
+def prompt_text(command, p1,r,p3):
+	global variables
+	name=variables[command]["name"]
+	prevalue = variables[command]["value"] 
+	if prevalue == 0:
+		value = ""
+	else:
+		value = prevalue
+	if p1 != 0:
+		if p3 != 0:
+			print name
+			val = raw_input(value)
+			variables[command]["value"] = val
+		else:
+			print name
+	elif p1 == 0 and p3 != 0:
+		log.info(name)
+		val = raw_input(value)
+		variables[command]["value"] = val
+	else:
+		log.error("ERRORS")
+	
+		
+	
+def goto_page(page_num):
+	global pos
+	new_pos = screen_list[page_num]
+	pos = new_pos
+	return
+
+def new_screen(position):
+	global screen_list
+	screen_list.append(position)
+
+def run_code(opcode):
+	global pos 
+	global return_to
+	command = opcode["command"]
+	p1 = opcode["p1"]
+	p2 = opcode["p2"]
+	p3 = opcode["p3"]
+	if command == 2999: #New Page
+		return ##We already defined pages
+	elif command <= 2000: #Display Var
+		p1 = p1
+		r = p2
+		p2 = p3
+		resp = prompt_text(command,p1,r,p2)
+		
+	elif command == 3000: #Conditional
+		answer=exec_conditional(p1,p2,p3)
+		if answer != True:
+			pos=pos+1
+
+	elif command == 8500: #Goto
+		goto_page(p2)
+
+	elif command >= 10000 and command < 20000: #Storing/Math Operation
+		storage=command - 10000
+		do_math(storage,p1,p2,p3)
+
+	elif command == 3101: #Goto
+		if p1 == 0:
+			return_to=pos
+		else:
+			answer=exec_conditional(p1,p2,p3)
+			if answer != True:
+				pos=return_to
+	else:
+		log.error("UNKNOWN COMMAND: " + str(command))
+			
+
+def define_pages(opcode_list):
+	for position in range(1, len(opcode_list)):
+		if opcode_list[position]["command"] == 2999:
+			new_screen(position)
+		else:
+			continue
+
+for line in code:
+	split = line[0:-1].split(",")
+	opcode={}
+	opcode["command"]=int(split[0])
+	if split[1] != "":
+		opcode["p1"]=int(split[1])
+	else:
+		opcode["p1"]=0
+	if split[2] != "":
+		opcode["p2"]=int(split[2])
+	else:
+		opcode["p2"]=0
+	if split[2] != "":
+		opcode["p2"]=int(split[2])
+	else:
+		opcode["p3"]=0
+	if split[3] != "":
+		opcode["p3"]=int(split[3])
+	else:
+		opcode["p3"]=0
+
+	opcode_list.append(opcode)
+
+define_pages(opcode_list)
+
+while True:
+	run_code(opcode_list[pos])
+	pos=pos+1
+	if pos == len(opcode_list):
+		break
+	

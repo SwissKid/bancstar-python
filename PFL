@@ -1,0 +1,42 @@
+Just look at all these strings,7,20
+This should be easy,7,20
+The End,8,
+Pause,7,1
+FULL NAME:,7,20
+SOCIAL SECURITY:,8,20
+RANK:,7,20
+DATE OF BIRTH:,8,20
+Search the Database,8,
+[Search],7,
+DOB Day,4,2
+DOB Month,4,2
+DOB Year,4,2
+Soc1,4,3
+Soc2,4,2
+Soc3,4,4
+-,8,
+/,8,
+No records found.,7,
+Open Confidential File,8,
+Access denied.,7,
+Cancel,7,8
+Password:,8,
+PIN:,4,4
+Composite1,4,
+1 record found.,7,
+flag=,8,
+Bill Costigan,8,
+SergeantDetectiveOfficerTrainee,8,
+JuniorSeniorStaff,8,
+Badge,7,6
+Seniority,7,7
+Test1,7,6
+Test2,7,7
+Scratch1,4,10
+flag,4,
+falseflag,4,
+realflag,4,
+cops,8,
+abcdefghijklmnopqrstvwxyz0123456789,8,
+mob,8,
+otherflag,7,8
