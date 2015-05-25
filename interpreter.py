@@ -222,7 +222,10 @@ def edit_form():
 	for usr_input in inputs:
 		value=stdscr.instr(usr_input["y"], usr_input["x"], usr_input["length"]).strip() #Read the input
 		if value=='':
-			continue
+			if variables[usr_input["prompt"]]["type"] == 4:
+				variables[usr_input["prompt"]]["value"]=0
+			else:
+				variables[usr_input["prompt"]]["value"]=""
 		else:
 			variables[usr_input["prompt"]]["value"]=value
 			log.info("Wrote " + value + " to " + str(usr_input["prompt"]))
