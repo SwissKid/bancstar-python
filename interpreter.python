@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 import curses 
+import signal
+import sys #Handling Ctrl+C
 import logging as log
 variables=[{}]
 screen_list=[0]
@@ -11,6 +13,14 @@ log.basicConfig(level=log.ERROR)
 #Open Files
 varfile=open("PFL")
 code=open("SCN")
+
+def signal_handler(signal, frame):
+				curses.endwin()
+				sys.exit(0)
+signal.signal(signal.SIGINT, signal_handler)
+#print('Press Ctrl+C')
+#signal.pause()
+
 
 #Populate VarFile
 for line in varfile:
@@ -87,7 +97,7 @@ def update_pos(inputs, usr_pos):
 	usr_x = inputs[usr_pos]["x"] #Move them to the next
 	usr_y = inputs[usr_pos]["y"]
 	usr_end = usr_x + inputs[usr_pos]["length"]
-	return usr_x, usr_y, usr_end
+	return usr_x, usr_y, usr_end, usr_pos
 
 def edit_form():
 	global pos
@@ -143,29 +153,24 @@ def edit_form():
 		elif ch == curses.KEY_UP:
 			stdscr.chgat(usr_y,usr_x,1,curses.A_UNDERLINE)
 			usr_pos = usr_pos - 1
-			usr_x, usr_y, usr_end = update_pos(inputs, usr_pos)
+			usr_x, usr_y, usr_end, usr_pos = update_pos(inputs, usr_pos)
 		elif ch == curses.KEY_DOWN:
 			stdscr.chgat(usr_y,usr_x,1,curses.A_UNDERLINE)
 			usr_pos = usr_pos + 1
-			usr_x, usr_y, usr_end = update_pos(inputs, usr_pos)
+			usr_x, usr_y, usr_end, usr_pos = update_pos(inputs, usr_pos)
 		elif ch == curses.KEY_LEFT:
 			stdscr.chgat(usr_y,usr_x,1,curses.A_UNDERLINE)
 			usr_x = usr_x - 1
 			if usr_x < inputs[usr_pos]["x"]:
 				usr_pos = usr_pos - 1
-				usr_x, usr_y, usr_end = update_pos(inputs, usr_pos)
-			elif usr_x >= usr_end:
-				usr_pos = usr_pos + 1
-				usr_x, usr_y, usr_end = update_pos(inputs, usr_pos)
+				usr_x, usr_y, usr_end, usr_pos = update_pos(inputs, usr_pos)
+				usr_x = usr_end - 1
 		elif ch == curses.KEY_RIGHT:
 			stdscr.chgat(usr_y,usr_x,1,curses.A_UNDERLINE)
 			usr_x = usr_x + 1
-			if usr_x < inputs[usr_pos]["x"]:
-				usr_pos = usr_pos - 1
-				usr_x, usr_y, usr_end = update_pos(inputs, usr_pos)
-			elif usr_x >= usr_end:
+			if usr_x >= usr_end:
 				usr_pos = usr_pos + 1
-				usr_x, usr_y, usr_end = update_pos(inputs, usr_pos)
+				usr_x, usr_y, usr_end, usr_pos = update_pos(inputs, usr_pos)
 			
 		elif ch == BACKSPACE or ch == U_BACKSPACE: ##Delete
 			if usr_x > inputs[usr_pos]["x"]:
@@ -175,20 +180,21 @@ def edit_form():
 			else:
 				stdscr.addch(usr_y,usr_x,32,curses.A_UNDERLINE) #Change the old one to underline
 				usr_pos=usr_pos - 1
-				usr_x, usr_y, usr_end = update_pos(inputs, usr_pos)
+				usr_x, usr_y, usr_end, usr_pos = update_pos(inputs, usr_pos)
 				usr_x = usr_end - 1
 				
 		elif ch == TAB: ##Next Input
-			stdscr.addch(usr_y,usr_x,ch,curses.A_UNDERLINE) #Change the old one to underline
+			#Change the old one to underline
+			stdscr.chgat(usr_y,usr_x,1,curses.A_UNDERLINE)
 			usr_pos = usr_pos + 1
-			usr_x, usr_y, usr_end = update_pos(inputs, usr_pos)
-		elif ch == ESC: #Maybe Shift Tab
+			usr_x, usr_y, usr_end, usr_pos = update_pos(inputs, usr_pos)
+		elif ch == ESC: #Maybe Shift Tab ( Doesn't work correctly)
 			new_in = stdscr.getch()
 			if new_in == 91: #Basically definitely a shift tab
 				stdscr.getch()
 				stdscr.addch(usr_y,usr_x,ch,curses.A_UNDERLINE) #Change the old one to underline
 				usr_pos = usr_pos - 1
-				usr_x, usr_y, usr_end = update_pos(inputs, usr_pos)
+				usr_x, usr_y, usr_end, usr_pos = update_pos(inputs, usr_pos)
 			else:
 				pos=0
 				break
@@ -201,14 +207,14 @@ def edit_form():
 					if usr_x >= usr_end: #Next Input
 						log.info("END OF FIELD")
 						usr_pos=usr_pos+1
-						usr_x, usr_y, usr_end = update_pos(inputs, usr_pos)
+						usr_x, usr_y, usr_end, usr_pos = update_pos(inputs, usr_pos)
 			elif ch>=32 and ch <=126: #Standard ASCII
 				stdscr.addch(usr_y,usr_x,ch,curses.A_UNDERLINE) #Change the old one to underline
 				usr_x=usr_x+1
 				if usr_x > usr_end: #Next Input
 					log.info("END OF FIELD")
 					usr_pos=usr_pos+1
-					usr_x, usr_y, usr_end = update_pos(inputs, usr_pos)
+					usr_x, usr_y, usr_end, usr_pos = update_pos(inputs, usr_pos)
 			else:
 				log.info("They hit " + str(ch) )
 
