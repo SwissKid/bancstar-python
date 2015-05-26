@@ -301,7 +301,6 @@ def do_math(storage, p1, p2, p3):
 		p2_op=p2%10
 		if p2_op == 5: #Make sure its substring
 			value=substring_operation(p1,p2,p3)
-			log.info("The variable " + str(storage) + " was changed to " + str(substr) + " on line " + str(pos))
 	else:
 		log.error("UNKNOWN OPERATION")
 	if operation != 6:
